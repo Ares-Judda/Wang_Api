@@ -32,6 +32,17 @@ const login = async (req, res = response) => {
   if (!email || !password)
     return res.status(400).json({ error: 'Faltan campos obligatorios' });
 
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const passwordRegex = /^[a-zA-Z0-9!@#$%^&*]{6,}$/;
+
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ error: '¡Error! El formato del correo electrónico es inválido' });
+  }
+
+  if (!passwordRegex.test(password)) {
+    return res.status(400).json({ error: '¡Error! La contraseña debe tener al menos 6 caracteres y solo contener letras, números o símbolos !@#$%^&*' });
+  }
+
   try {
     const user = await getUserByEmail(email);
     if (!user) return res.status(400).json({ error: 'Credenciales inválidas' });

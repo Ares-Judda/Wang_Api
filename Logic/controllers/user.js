@@ -1,6 +1,5 @@
 const { response } = require('express');
 const { pool, poolConnect, sql } = require('../../business/models/database');
-const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const crypto = require('crypto');
 require("dotenv").config();
@@ -55,6 +54,17 @@ const registerUser = async (req, res = response) => {
   if (!email || !password || !name || !lastname || !userName)
     return res.status(400).json({ error: 'Faltan campos obligatorios' });
 
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const passwordRegex = /^[a-zA-Z0-9!@#$%^&*]{6,}$/;
+
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ error: '¡Error! El formato del correo electrónico es inválido' });
+  }
+
+  if (!passwordRegex.test(password)) {
+    return res.status(400).json({ error: '¡Error! La contraseña debe tener al menos 6 caracteres y solo contener letras, números o símbolos !@#$%^&*' });
+  }
+
   try {
     if (await emailExists(email))
       return res.status(400).json({ error: 'El correo ya está registrado' });
@@ -82,7 +92,61 @@ const registerUser = async (req, res = response) => {
   }
 };
 
+const validateChangePasswordInput = (email, newPassword, confirmPassword) => {
+  if (!email || !newPassword || !confirmPassword) {
+    return { valid: false, error: '¡Error! ¡Hay campos vacíos! Complételos para continuar' };
+  }
+
+  const passwordRegex = /^[a-zA-Z0-9!@#$%^&*]{6,}$/;
+  if (!passwordRegex.test(newPassword)) {
+    return { valid: false, error: '¡Error! ¡Hay caracteres erróneos! Cámbielos para continuar' };
+  }
+
+  if (newPassword !== confirmPassword) {
+    return { valid: false, error: 'Las contraseñas no coinciden' };
+  }
+
+  return { valid: true };
+};
+
+const changePassword = async (req, res = response) => {
+  const { email, newPassword, confirmPassword } = req.body;
+
+  const validation = validateChangePasswordInput(email, newPassword, confirmPassword);
+  if (!validation.valid) {
+    return res.status(400).json({ error: validation.error });
+  }
+
+  try {
+    await poolConnect;
+    const request = pool.request();
+    request.input('Email', sql.VarChar(100), email);
+    const result = await request.query('SELECT AccountID FROM Accounts WHERE Email = @Email');
+    const account = result.recordset[0];
+
+    if (!account) {
+      return res.status(404).json({ error: 'Correo no encontrado en la base de datos' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    const updateRequest = pool.request();
+    updateRequest.input('AccountID', sql.UniqueIdentifier, account.AccountID);
+    updateRequest.input('Password', sql.NVarChar(255), hashedPassword);
+    await updateRequest.query(`
+      UPDATE Accounts SET Password = @Password WHERE AccountID = @AccountID
+    `);
+
+    return res.status(200).json({ message: '¡Se ha actualizado la contraseña del Usuario correctamente!' });
+
+  } catch (error) {
+    console.error('Error en changePassword:', error);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
 
 module.exports = {
   registerUser,
+  changePassword,
 };
