@@ -7,12 +7,14 @@ const {
     registerUser,
     changePassword,
     getAllUsers,
-    getUserProfile
+    getUserProfile,
+    updateUserProfile
 } = require('../../Logic/controllers/user');
 
 router.post('/register', upload.single('imagen'), registerUser);
 router.post('/changePassword', changePassword);
 router.get('/', verifyTokenAndRefresh, getAllUsers); 
 router.get('/profile', verifyTokenAndRefresh, getUserProfile);
+router.put('/updateProfile', verifyTokenAndRefresh, upload.single('imagen'), updateUserProfile);
 
 module.exports = router;

@@ -204,9 +204,68 @@ const getUserProfile = async (req, res = response) => {
   }
 };
 
+const updateUserProfile = async (req, res = response) => {
+  const { email, fullName, phone, address } = req.body;
+  const profileImageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+  if (!email || !fullName || !phone || !address || !profileImageUrl) {
+    return res.status(400).json({
+      error: '¡Error! ¡Hay campos vacíos! Complételos para continuar',
+    });
+  }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const phoneRegex = /^[0-9+()\-.\s]*$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({
+      error: '¡Error! ¡Hay caracteres erróneos! Cámbielos para continuar',
+      fields: { email: true }
+    });
+  }
+  if (phone && !phoneRegex.test(phone)) {
+    return res.status(400).json({
+      error: '¡Error! ¡Hay caracteres erróneos! Cámbielos para continuar',
+      fields: { phone: true }
+    });
+  }
+  try {
+    await poolConnect;
+    const request = pool.request();
+    request.input('Email', sql.VarChar(100), email);
+    const result = await request.query(`
+      SELECT u.UserID, a.AccountID
+      FROM Users u
+      INNER JOIN Accounts a ON u.AccountID = a.AccountID
+      WHERE a.Email = @Email
+    `);
+    const user = result.recordset[0];
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    const updateRequest = pool.request();
+    updateRequest.input('UserID', sql.UniqueIdentifier, user.UserID);
+    updateRequest.input('FullName', sql.NVarChar(100), fullName);
+    updateRequest.input('Phone', sql.NVarChar(20), phone || null);
+    updateRequest.input('Address', sql.NVarChar(255), address || null);
+    updateRequest.input('ProfileImageUrl', sql.NVarChar(255), profileImageUrl || null);
+    await updateRequest.query(`
+      UPDATE Users
+      SET FullName = @FullName,
+          Phone = @Phone,
+          Address = @Address,
+          ProfileImageUrl = @ProfileImageUrl
+      WHERE UserID = @UserID
+    `);
+    return res.status(200).json({ message: '¡Se han modificado los datos del Usuario correctamente!' });
+  } catch (error) {
+    console.error('Error en updateUserProfile:', error);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+
 module.exports = {
   registerUser,
   changePassword,
   getAllUsers,
   getUserProfile,
+  updateUserProfile
 };
