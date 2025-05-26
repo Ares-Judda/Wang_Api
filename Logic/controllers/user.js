@@ -2,6 +2,7 @@ const { response } = require('express');
 const { pool, poolConnect, sql } = require('../../business/models/database');
 const bcrypt = require("bcryptjs");
 const crypto = require('crypto');
+const { get } = require('http');
 require("dotenv").config();
 
 
@@ -145,8 +146,67 @@ const changePassword = async (req, res = response) => {
   }
 };
 
+const getAllUsers = async (req, res = response) => {
+  try {
+    await poolConnect;
+    const result = await pool.request().query(`
+      SELECT 
+        u.UserID, u.FullName, u.Phone, u.Address, u.ProfileImageUrl,
+        a.Email, a.Role
+      FROM Users u
+      INNER JOIN Accounts a ON u.AccountID = a.AccountID
+    `);
+
+    return res.status(200).json({ users: result.recordset });
+
+  } catch (error) {
+    console.error('Error en getAllUsers:', error);
+    return res.status(500).json({ error: 'Error al obtener los usuarios' });
+  }
+};
+
+
+const getUserProfile = async (req, res = response) => {
+  const email = req.query.email;
+
+  if (!email) {
+    return res.status(400).json({ error: 'Se requiere el correo electrónico' });
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ error: '¡Error! El formato del correo electrónico es inválido' });
+  }
+
+  try {
+    await poolConnect;
+    const request = pool.request();
+    request.input('Email', sql.VarChar(100), email);
+
+    const result = await request.query(`
+      SELECT 
+        u.UserID, u.FullName, u.Phone, u.Address, u.ProfileImageUrl,
+        a.Email, a.Role
+      FROM Users u
+      INNER JOIN Accounts a ON u.AccountID = a.AccountID
+      WHERE a.Email = @Email
+    `);
+
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    return res.status(200).json({ user: result.recordset[0] });
+
+  } catch (error) {
+    console.error('Error en getUserProfile:', error);
+    return res.status(500).json({ error: 'Error al obtener perfil del usuario' });
+  }
+};
 
 module.exports = {
   registerUser,
   changePassword,
+  getAllUsers,
+  getUserProfile,
 };
