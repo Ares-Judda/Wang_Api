@@ -30,6 +30,7 @@ class Server {
     routes() {
         this.app.use('/api/auth', require('../../services/routesRest/auth'));
         this.app.use('/api/user', require('../../services/routesRest/user'));
+        this.app.use('/api/property', require('../../services/routesRest/property'));
     }
 
     setupSwagger() {
