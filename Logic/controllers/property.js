@@ -288,76 +288,189 @@ const updateFAQAnswer = async (req, res = response) => {
     }
 };
 
-const getContracts = async (req, res = response) => {
+const createReview = async (req, res = response) => {
+    const { tenantId, propertyId, rating, comment } = req.body;
+
+    // Validación básica de los campos requeridos
+    if (!tenantId || !propertyId || !rating || !comment) {
+        return res.status(400).json({ error: 'Todos los campos (tenantId, propertyId, rating, comment) son requeridos' });
+    }
+
+    // Validar que el rating esté entre 1 y 5
+    if (rating < 1 || rating > 5) {
+        return res.status(400).json({ error: 'El rating debe estar entre 1 y 5' });
+    }
+
+    try {
+        await poolConnect;
+
+        // Verificar si el TenantID existe en dbo.Users
+        const tenantCheckRequest = pool.request();
+        tenantCheckRequest.input('TenantID', sql.UniqueIdentifier, tenantId);
+        const tenantResult = await tenantCheckRequest.query(`
+            SELECT 1 FROM dbo.Users WHERE UserID = @TenantID
+        `);
+        if (!tenantResult.recordset || tenantResult.recordset.length === 0) {
+            return res.status(404).json({ error: 'El tenantId proporcionado no existe en la tabla Users' });
+        }
+
+        // Verificar si el PropertyID existe en dbo.Properties y está activo
+        const propertyCheckRequest = pool.request();
+        propertyCheckRequest.input('PropertyID', sql.UniqueIdentifier, propertyId);
+        const propertyResult = await propertyCheckRequest.query(`
+            SELECT 1 FROM dbo.Properties WHERE PropertyID = @PropertyID AND IsActive = 1
+        `);
+        if (!propertyResult.recordset || propertyResult.recordset.length === 0) {
+            return res.status(404).json({ error: 'El propertyId proporcionado no existe o está inactivo' });
+        }
+
+        // Insertar la reseña
+        const insertRequest = pool.request();
+        const reviewId = crypto.randomUUID(); // Generar un ID único para ReviewID
+        insertRequest.input('ReviewID', sql.UniqueIdentifier, reviewId);
+        insertRequest.input('TenantID', sql.UniqueIdentifier, tenantId);
+        insertRequest.input('PropertyID', sql.UniqueIdentifier, propertyId);
+        insertRequest.input('Rating', sql.Int, rating);
+        insertRequest.input('Comment', sql.NVarChar, comment);
+
+        const insertQuery = `
+            INSERT INTO dbo.Reviews (ReviewID, TenantID, PropertyID, Rating, Comment, ReviewDate)
+            VALUES (@ReviewID, @TenantID, @PropertyID, @Rating, @Comment, GETDATE())
+        `;
+        await insertRequest.query(insertQuery);
+
+        return res.status(201).json({ message: 'Reseña creada exitosamente', reviewId });
+    } catch (error) {
+        console.error('Error en createReview:', error);
+        return res.status(500).json({ error: 'Error interno del servidor' });
+    }
+};
+
+const createAppointment = async (req, res = response) => {
+    const { tenantId, propertyId, visitDateTime } = req.body;
+
+    // Validación básica de los campos requeridos
+    if (!tenantId || !propertyId || !visitDateTime) {
+        return res.status(400).json({ error: 'Todos los campos (tenantId, propertyId, visitDateTime) son requeridos' });
+    }
+
+    try {
+        await poolConnect;
+
+        // Verificar si el TenantID existe en dbo.Users
+        const tenantCheckRequest = pool.request();
+        tenantCheckRequest.input('TenantID', sql.UniqueIdentifier, tenantId);
+        const tenantResult = await tenantCheckRequest.query(`
+            SELECT 1 FROM dbo.Users WHERE UserID = @TenantID
+        `);
+        if (!tenantResult.recordset || tenantResult.recordset.length === 0) {
+            return res.status(404).json({ error: 'El tenantId proporcionado no existe en la tabla Users' });
+        }
+
+        // Verificar si el PropertyID existe en dbo.Properties y está activo
+        const propertyCheckRequest = pool.request();
+        propertyCheckRequest.input('PropertyID', sql.UniqueIdentifier, propertyId);
+        const propertyResult = await propertyCheckRequest.query(`
+            SELECT 1 FROM dbo.Properties WHERE PropertyID = @PropertyID AND IsActive = 1
+        `);
+        if (!propertyResult.recordset || propertyResult.recordset.length === 0) {
+            return res.status(404).json({ error: 'El propertyId proporcionado no existe o está inactivo' });
+        }
+
+        // Insertar la cita
+        const insertRequest = pool.request();
+        const appointmentId = crypto.randomUUID(); // Generar un ID único para AppointmentID
+        insertRequest.input('AppointmentID', sql.UniqueIdentifier, appointmentId);
+        insertRequest.input('TenantID', sql.UniqueIdentifier, tenantId);
+        insertRequest.input('PropertyID', sql.UniqueIdentifier, propertyId);
+        insertRequest.input('VisitDateTime', sql.DateTime, new Date(visitDateTime)); // Convertir a DateTime
+        insertRequest.input('Status', sql.NVarChar(20), 'Pending'); // Establecer Status como "On wait"
+
+        const insertQuery = `
+            INSERT INTO dbo.Appointments (AppointmentID, TenantID, PropertyID, VisitDateTime, Status)
+            VALUES (@AppointmentID, @TenantID, @PropertyID, @VisitDateTime, @Status)
+        `;
+        await insertRequest.query(insertQuery);
+
+        return res.status(201).json({ message: 'Cita creada exitosamente', appointmentId });
+    } catch (error) {
+        console.error('Error en createAppointment:', error);
+        return res.status(500).json({ error: 'Error interno del servidor' });
+    }
+};
+
+const updateAppointmentStatus = async (req, res = response) => {
+    const { appointmentId, status } = req.body;
+
+    // Validación básica de los campos requeridos
+    if (!appointmentId || !status) {
+        return res.status(400).json({ error: 'Todos los campos (appointmentId, status) son requeridos' });
+    }
+
+    try {
+        await poolConnect;
+
+        // Verificar si la cita existe
+        const checkRequest = pool.request();
+        checkRequest.input('AppointmentID', sql.UniqueIdentifier, appointmentId);
+        const checkResult = await checkRequest.query(`
+            SELECT 1 FROM dbo.Appointments WHERE AppointmentID = @AppointmentID
+        `);
+        if (!checkResult.recordset || checkResult.recordset.length === 0) {
+            return res.status(404).json({ error: 'La cita con el AppointmentID proporcionado no existe' });
+        }
+
+        // Actualizar el estado
+        const updateRequest = pool.request();
+        updateRequest.input('AppointmentID', sql.UniqueIdentifier, appointmentId);
+        updateRequest.input('Status', sql.NVarChar(50), status);
+
+        const updateQuery = `
+            UPDATE dbo.Appointments
+            SET Status = @Status
+            WHERE AppointmentID = @AppointmentID
+        `;
+        await updateRequest.query(updateQuery);
+
+        return res.status(200).json({ message: `Estado de la cita actualizado a ${status} exitosamente`, appointmentId });
+    } catch (error) {
+        console.error('Error en updateAppointmentStatus:', error);
+        return res.status(500).json({ error: 'Error interno del servidor' });
+    }
+};
+
+const getAppointments = async (req, res = response) => {
     try {
         await poolConnect;
 
         const queryRequest = pool.request();
         const query = `
-            SELECT c.ContractFile, c.StartDate, c.EndDate, p.Title
-            FROM dbo.Contracts c
-            INNER JOIN dbo.Appointments a ON c.AppointmentID = a.AppointmentID
-            INNER JOIN dbo.Properties p ON a.PropertyID = p.PropertyID
-            WHERE p.IsActive = 1
+            SELECT 
+                a.Status,
+                u.FullName,
+                u.Phone,
+                ac.Email
+            FROM dbo.Appointments a
+            INNER JOIN dbo.Users u ON a.TenantID = u.UserID
+            INNER JOIN dbo.Accounts ac ON u.AccountID = ac.AccountID
+            WHERE ac.IsActive = 1
         `;
         const result = await queryRequest.query(query);
 
         if (!result.recordset || result.recordset.length === 0) {
-            return res.status(404).json({ error: 'No se encontraron contratos' });
+            return res.status(404).json({ error: 'No se encontraron citas' });
         }
 
-        const contracts = result.recordset.map(row => ({
-            contractFile: row.ContractFile,
-            startDate: row.StartDate,
-            endDate: row.EndDate,
-            title: row.Title
+        const appointments = result.recordset.map(row => ({
+            status: row.Status,
+            fullName: row.FullName,
+            phone: row.Phone,
+            email: row.Email
         }));
 
-        return res.status(200).json(contracts);
+        return res.status(200).json(appointments);
     } catch (error) {
-        console.error('Error en getContracts:', error);
-        return res.status(500).json({ error: 'Error interno del servidor' });
-    }
-};
-
-const createPayment = async (req, res = response) => {
-    const { contractId, paymentMethod, amount } = req.body;
-
-    // Validación básica de los campos requeridos
-    if (!contractId || !paymentMethod || !amount) {
-        return res.status(400).json({ error: 'Todos los campos (contractId, paymentMethod, amount, paymentDate) son requeridos' });
-    }
-
-    try {
-        await poolConnect;
-
-        // Verificar si el ContractID existe en dbo.Contracts
-        const checkRequest = pool.request();
-        checkRequest.input('ContractID', sql.UniqueIdentifier, contractId);
-        const checkResult = await checkRequest.query(`
-            SELECT 1 FROM dbo.Contracts WHERE ContractID = @ContractID
-        `);
-        if (!checkResult.recordset || checkResult.recordset.length === 0) {
-            return res.status(404).json({ error: 'El ContractID proporcionado no existe' });
-        }
-
-        // Insertar el pago
-        const insertRequest = pool.request();
-        const paymentId = crypto.randomUUID(); 
-        insertRequest.input('PaymentID', sql.UniqueIdentifier, paymentId);
-        insertRequest.input('ContractID', sql.UniqueIdentifier, contractId);
-        insertRequest.input('PaymentMethod', sql.NVarChar(50), paymentMethod);
-        insertRequest.input('Amount', sql.Decimal(12, 2), amount);
-
-        const insertQuery = `
-            INSERT INTO dbo.Payments (PaymentID, ContractID, PaymentMethod, Amount, PaymentDate)
-            VALUES (@PaymentID, @ContractID, @PaymentMethod, @Amount, GETDATE())
-        `;
-        await insertRequest.query(insertQuery);
-
-        return res.status(201).json({ message: 'Pago creado exitosamente', paymentId });
-    } catch (error) {
-        console.error('Error en createPayment:', error);
+        console.error('Error en getAppointments:', error);
         return res.status(500).json({ error: 'Error interno del servidor' });
     }
 };
@@ -369,6 +482,8 @@ module.exports = {
     getPropertyDetails,
     createFAQ,
     updateFAQAnswer,
-    getContracts,
-    createPayment
+    createReview,
+    createAppointment,
+    updateAppointmentStatus,
+    getAppointments
 };
