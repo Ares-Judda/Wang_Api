@@ -178,11 +178,13 @@ const getPropertyDetails = async (req, res = response) => {
         searchRequest.input('Title', sql.VarChar(150), title.trim());
         const searchResult = await searchRequest.query(`
             SELECT p.PropertyID, p.Title, p.Price, p.Description, p.PublishDate, pi.ImageURL, u.FullName AS ownerName,
-                   r.Rating, r.Comment, r.ReviewDate
+                   r.Rating, r.Comment, r.ReviewDate,
+                   f.FAQID, f.Question, f.Answer, f.DateAsked
             FROM dbo.Properties p
             LEFT JOIN dbo.PropertyImages pi ON p.PropertyID = pi.PropertyID
             LEFT JOIN dbo.Users u ON p.OwnerID = u.UserID
             LEFT JOIN dbo.Reviews r ON p.PropertyID = r.PropertyID
+            LEFT JOIN dbo.FAQs f ON p.PropertyID = f.PropertyID
             WHERE p.Title = @Title AND p.IsActive = 1
         `);
 
@@ -190,7 +192,6 @@ const getPropertyDetails = async (req, res = response) => {
             return res.status(404).json({ error: 'Inmueble no encontrado o inactivo' });
         }
 
-        // Agrupar las imágenes por inmueble y añadir el nombre del propietario
         const propertyDetails = {
             propertyId: searchResult.recordset[0].PropertyID,
             title: searchResult.recordset[0].Title,
@@ -202,11 +203,19 @@ const getPropertyDetails = async (req, res = response) => {
                 .filter(row => row.ImageURL !== null) 
                 .map(row => row.ImageURL),
             reviews: searchResult.recordset
-                .filter(row => row.Rating !== null || row.Comment !== null || row.ReviewDate !== null) // Filtrar solo filas con reseñas
+                .filter(row => row.Rating !== null || row.Comment !== null || row.ReviewDate !== null) 
                 .map(row => ({
                     rating: row.Rating,
                     comment: row.Comment,
                     reviewDate: row.ReviewDate
+                })),
+            faqs: searchResult.recordset
+                .filter(row => row.FAQID !== null || row.Question !== null || row.Answer !== null || row.DateAsked !== null) 
+                .map(row => ({
+                    faqId: row.FAQID,
+                    question: row.Question,
+                    answer: row.Answer,
+                    dateAsked: row.DateAsked
                 }))
         };
 
