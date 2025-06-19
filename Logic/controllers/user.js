@@ -207,7 +207,7 @@ const getUserProfile = async (req, res = response) => {
 const updateUserProfile = async (req, res = response) => {
   const { email, fullName, phone, address } = req.body;
   const profileImageUrl = req.file ? `/uploads/${req.file.filename}` : null;
-  if (!email || !fullName || !phone || !address || !profileImageUrl) {
+  if (!email || !fullName || !phone || !address) {
     return res.status(400).json({
       error: '¡Error! ¡Hay campos vacíos! Complételos para continuar',
     });
