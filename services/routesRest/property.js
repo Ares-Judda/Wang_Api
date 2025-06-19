@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const upload = require('../../business/helpers/multerConfig');
+const verifyTokenAndRefresh = require('../../business/middleware/verifyToken'); 
 
 const { getProperties, createProperty, updateProperty, 
     getPropertyDetails, createFAQ, updateFAQAnswer, createReview, 
@@ -15,6 +16,6 @@ router.put('/answer', updateFAQAnswer);
 router.post('/createReview', createReview);
 router.post('/createAppointment', createAppointment);
 router.put('/updateAppointment', updateAppointmentStatus);
-router.get('/getAppointments', getAppointments);
+router.get('/getAppointments',verifyTokenAndRefresh, getAppointments);
 
 module.exports = router;
