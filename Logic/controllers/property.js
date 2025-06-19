@@ -165,17 +165,17 @@ const updateProperty = async (req, res = response) => {
 };
 
 const getPropertyDetails = async (req, res = response) => {
-    const { title } = req.query; // Obtenemos el título desde los parámetros de consulta
+    const { propertyId } = req.query; // Obtenemos el título desde los parámetros de consulta
 
-    if (!title) {
-        return res.status(400).json({ error: 'Debe proporcionar un título para buscar el inmueble' });
+    if (!propertyId) {
+        return res.status(400).json({ error: 'Debe proporcionar un propertyId para buscar el inmueble' });
     }
 
     try {
         await poolConnect;
 
         const searchRequest = pool.request();
-        searchRequest.input('Title', sql.VarChar(150), title.trim());
+        searchRequest.input('PropertyID', sql.UniqueIdentifier, propertyId);
         const searchResult = await searchRequest.query(`
             SELECT p.PropertyID, p.Title, p.Price, p.Description, p.PublishDate, pi.ImageURL, u.FullName AS ownerName,
                    r.Rating, r.Comment, r.ReviewDate,
@@ -185,7 +185,7 @@ const getPropertyDetails = async (req, res = response) => {
             LEFT JOIN dbo.Users u ON p.OwnerID = u.UserID
             LEFT JOIN dbo.Reviews r ON p.PropertyID = r.PropertyID
             LEFT JOIN dbo.FAQs f ON p.PropertyID = f.PropertyID
-            WHERE p.Title = @Title AND p.IsActive = 1
+            WHERE p.PropertyID = @PropertyID AND p.IsActive = 1
         `);
 
         if (!searchResult.recordset || searchResult.recordset.length === 0) {
