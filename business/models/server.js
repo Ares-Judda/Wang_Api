@@ -5,7 +5,6 @@ const connection = require('../../business/models/database');
 const path = require('path');
 const YAML = require('yamljs');
 
-
 class Server {
     constructor() {
         this.app = express();
@@ -24,7 +23,10 @@ class Server {
         }));
         this.app.use(express.json());
         this.app.use(express.static('public'));
-        this.app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+
+        const uploadsPath = path.join(__dirname, '..', 'uploads');
+        console.log('📂 Serviendo archivos estáticos desde:', uploadsPath);
+        this.app.use('/uploads', express.static(uploadsPath));
     }
 
     routes() {
