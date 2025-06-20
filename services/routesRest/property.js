@@ -5,7 +5,7 @@ const verifyTokenAndRefresh = require('../../business/middleware/verifyToken');
 
 const { getProperties, createProperty, updateProperty, 
     getPropertyDetails, createFAQ, updateFAQAnswer, createReview, 
-    createAppointment, updateAppointmentStatus, getAppointments } = require('../../Logic/controllers/property');
+    createAppointment, updateAppointmentStatus, getAppointments, getBasicPropertyDetails } = require('../../Logic/controllers/property');
 
 router.get('/getProperties', getProperties);
 router.post('/createProperty', upload.array('images', 10), createProperty);
@@ -17,5 +17,6 @@ router.post('/createReview', createReview);
 router.post('/createAppointment', createAppointment);
 router.put('/updateAppointment', updateAppointmentStatus);
 router.get('/getAppointments',verifyTokenAndRefresh, getAppointments);
+router.get('/getBasicPropertyDetails', getBasicPropertyDetails);
 
 module.exports = router;

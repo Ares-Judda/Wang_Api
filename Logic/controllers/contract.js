@@ -15,7 +15,6 @@ const getContracts = async (req, res = response) => {
             FROM dbo.Contracts c
             INNER JOIN dbo.Appointments a ON c.AppointmentID = a.AppointmentID
             INNER JOIN dbo.Properties p ON a.PropertyID = p.PropertyID
-            WHERE p.IsActive = 1
         `;
         const result = await queryRequest.query(query);
 
