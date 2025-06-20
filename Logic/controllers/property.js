@@ -455,10 +455,12 @@ const getAppointments = async (req, res = response) => {
         const queryRequest = pool.request();
         const query = `
             SELECT 
+                a.AppointmentID,
                 a.Status,
                 u.FullName,
                 u.Phone,
-                ac.Email
+                ac.Email,
+                a.VisitDateTime AS VisitDate
             FROM dbo.Appointments a
             INNER JOIN dbo.Users u ON a.TenantID = u.UserID
             INNER JOIN dbo.Accounts ac ON u.AccountID = ac.AccountID
@@ -471,10 +473,12 @@ const getAppointments = async (req, res = response) => {
         }
 
         const appointments = result.recordset.map(row => ({
+            appointmentId: row.AppointmentID,
             status: row.Status,
             fullName: row.FullName,
             phone: row.Phone,
-            email: row.Email
+            email: row.Email,
+            visitDate: row.VisitDate
         }));
 
         return res.status(200).json(appointments);
