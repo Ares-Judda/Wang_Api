@@ -4,7 +4,7 @@ const upload = require('../../business/helpers/multerConfig');
 
 const { getContracts, createPayment } = require('../../Logic/controllers/contract');
 
-router.get('/contracts', getContracts)
+router.get('/', getContracts);
 router.post('/createPayment', createPayment);
 
 module.exports = router;
