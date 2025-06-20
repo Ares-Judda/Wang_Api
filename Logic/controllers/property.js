@@ -164,6 +164,59 @@ const updateProperty = async (req, res = response) => {
     }
 };
 
+const getBasicPropertyDetails = async (req, res = response) => {
+    const { propertyId } = req.query;
+
+    if (!propertyId) {
+        return res.status(400).json({ error: 'Debe proporcionar un propertyId para buscar el inmueble' });
+    }
+
+    try {
+        await poolConnect;
+
+        const searchRequest = pool.request();
+        searchRequest.input('PropertyID', sql.UniqueIdentifier, propertyId);
+        const result = await searchRequest.query(`
+            SELECT 
+                p.PropertyID, p.Title, p.Price, p.Description, p.Address, 
+                p.Latitude, p.Longitude, p.CurrentStatus, p.PublishDate, 
+                p.CategoryID, p.OwnerID, u.FullName AS ownerName,
+                pi.ImageURL
+            FROM dbo.Properties p
+            LEFT JOIN dbo.Users u ON p.OwnerID = u.UserID
+            LEFT JOIN dbo.PropertyImages pi ON p.PropertyID = pi.PropertyID
+            WHERE p.PropertyID = @PropertyID AND p.IsActive = 1
+        `);
+
+        if (!result.recordset || result.recordset.length === 0) {
+            return res.status(404).json({ error: 'Inmueble no encontrado o inactivo' });
+        }
+
+        const records = result.recordset;
+
+        const property = {
+            propertyId: records[0].PropertyID,
+            title: records[0].Title,
+            price: records[0].Price,
+            description: records[0].Description,
+            address: records[0].Address,
+            latitude: records[0].Latitude,
+            longitude: records[0].Longitude,
+            currentStatus: records[0].CurrentStatus,
+            publishDate: records[0].PublishDate,
+            categoryId: records[0].CategoryID,
+            ownerId: records[0].OwnerID,
+            ownerName: records[0].ownerName,
+            images: [...new Set(records.map(row => row.ImageURL).filter(url => url))]
+        };
+
+        return res.status(200).json(property);
+    } catch (error) {
+        console.error('Error en getBasicPropertyDetails:', error);
+        return res.status(500).json({ error: 'Error interno del servidor'});
+}
+};
+
 const getPropertyDetails = async (req, res = response) => {
     const { propertyId } = req.query;
 
@@ -517,5 +570,6 @@ module.exports = {
     createReview,
     createAppointment,
     updateAppointmentStatus,
-    getAppointments
+    getAppointments,
+    getBasicPropertyDetails
 };
