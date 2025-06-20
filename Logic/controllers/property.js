@@ -165,7 +165,7 @@ const updateProperty = async (req, res = response) => {
 };
 
 const getPropertyDetails = async (req, res = response) => {
-    const { propertyId } = req.query; // Obtenemos el título desde los parámetros de consulta
+    const { propertyId } = req.query;
 
     if (!propertyId) {
         return res.status(400).json({ error: 'Debe proporcionar un propertyId para buscar el inmueble' });
@@ -192,31 +192,52 @@ const getPropertyDetails = async (req, res = response) => {
             return res.status(404).json({ error: 'Inmueble no encontrado o inactivo' });
         }
 
+        const records = searchResult.recordset;
+
         const propertyDetails = {
-            propertyId: searchResult.recordset[0].PropertyID,
-            title: searchResult.recordset[0].Title,
-            price: searchResult.recordset[0].Price,
-            description: searchResult.recordset[0].Description,
-            publishDate: searchResult.recordset[0].PublishDate,
-            ownerName: searchResult.recordset[0].ownerName,
-            images: searchResult.recordset
-                .filter(row => row.ImageURL !== null) 
-                .map(row => row.ImageURL),
-            reviews: searchResult.recordset
-                .filter(row => row.Rating !== null || row.Comment !== null || row.ReviewDate !== null) 
-                .map(row => ({
-                    rating: row.Rating,
-                    comment: row.Comment,
-                    reviewDate: row.ReviewDate
-                })),
-            faqs: searchResult.recordset
-                .filter(row => row.FAQID !== null || row.Question !== null || row.Answer !== null || row.DateAsked !== null) 
-                .map(row => ({
-                    faqId: row.FAQID,
-                    question: row.Question,
-                    answer: row.Answer,
-                    dateAsked: row.DateAsked
-                }))
+            propertyId: records[0].PropertyID,
+            title: records[0].Title,
+            price: records[0].Price,
+            description: records[0].Description,
+            publishDate: records[0].PublishDate,
+            ownerName: records[0].ownerName,
+
+            images: [...new Set(
+                records
+                    .filter(row => row.ImageURL)
+                    .map(row => row.ImageURL)
+            )],
+
+            reviews: Array.from(
+                new Map(
+                    records
+                        .filter(row => row.Rating !== null || row.Comment || row.ReviewDate)
+                        .map(row => [ 
+                            `${row.Rating}|${row.Comment}|${row.ReviewDate}`,  // clave única
+                            {
+                                rating: row.Rating,
+                                comment: row.Comment,
+                                reviewDate: row.ReviewDate
+                            }
+                        ])
+                ).values()
+            ),
+
+            faqs: Array.from(
+                new Map(
+                    records
+                        .filter(row => row.FAQID || row.Question || row.Answer || row.DateAsked)
+                        .map(row => [
+                            row.FAQID,  // clave única
+                            {
+                                faqId: row.FAQID,
+                                question: row.Question,
+                                answer: row.Answer,
+                                dateAsked: row.DateAsked
+                            }
+                        ])
+                ).values()
+            )
         };
 
         return res.status(200).json(propertyDetails);
@@ -225,6 +246,8 @@ const getPropertyDetails = async (req, res = response) => {
         return res.status(500).json({ error: 'Error interno del servidor' });
     }
 };
+
+
 
 const createFAQ = async (req, res = response) => {
     const { tenantId, propertyId, question } = req.body;
