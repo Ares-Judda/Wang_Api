@@ -3,7 +3,7 @@ const cors = require('cors');
 require('dotenv').config();
 const connection = require('../../business/models/database');
 const path = require('path');
-
+const YAML = require('yamljs');
 
 class Server {
     constructor() {
@@ -23,11 +23,17 @@ class Server {
         }));
         this.app.use(express.json());
         this.app.use(express.static('public'));
-        this.app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+
+        const uploadsPath = path.join(__dirname, '..', 'uploads');
+        console.log('📂 Serviendo archivos estáticos desde:', uploadsPath);
+        this.app.use('/uploads', express.static(uploadsPath));
     }
 
     routes() {
-        
+        this.app.use('/api/auth', require('../../services/routesRest/auth'));
+        this.app.use('/api/user', require('../../services/routesRest/user'));
+        this.app.use('/api/property', require('../../services/routesRest/property'));
+        this.app.use('/api/contracts', require('../../services/routesRest/contract'));
     }
 
     setupSwagger() {
@@ -42,11 +48,10 @@ class Server {
             console.log(' Conexión exitosa a la base de datos');
             this.app.listen(this.port, () => {
                 console.log(` Server listening on port ${this.port}`);
-                console.log(` Swagger en: http://localhost:${this.port}/api-docs`);
             });
         })
         .catch(err => {
-            console.error('❌ Error de conexión a la base de datos:', err);
+            console.error('Error de conexión a la base de datos:', err);
             process.exit(1); 
         });
     }
@@ -54,3 +59,4 @@ class Server {
 }
 
 module.exports = Server;
+module.exports.app = new Server().app; // ← para usar en pruebas
